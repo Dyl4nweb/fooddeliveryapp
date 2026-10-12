@@ -7,6 +7,7 @@ import { Session, User } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
@@ -203,11 +204,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const isExpoGo =
         Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-      // In Expo Go on iOS, Safari only recognizes exp:// links.
-      // In standalone / development builds, it uses the registered agturong:// scheme.
-      const redirectTo = isExpoGo
-        ? Linking.createURL('auth-callback')
-        : 'agturong://auth-callback';
+      // Use makeRedirectUri from expo-auth-session to generate SDK-standard redirect URI
+      const redirectTo = makeRedirectUri({
+        scheme: 'agturong',
+        path: 'auth-callback',
+      });
 
       console.log('🔗 [OAuth] isExpoGo:', isExpoGo, 'redirectTo:', redirectTo);
 
