@@ -1,67 +1,87 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+// ============================================================
+// AGTURONG — Tab Layout
+// ============================================================
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import React from 'react';
+import { View, Platform } from 'react-native';
+import { Tabs } from 'expo-router';
+import { Home, Search, ClipboardList, ShoppingCart, User } from 'lucide-react-native';
+import { Colors, Spacing, FontSize, FontWeight, Shadow } from '../../constants/theme';
+import { useCart } from '../../store/cart';
+import { Badge } from '../../components/ui';
+
+function CartTabIcon({ color, focused }: { color: any; focused: boolean }) {
+  const { totalItems } = useCart();
+  return (
+    <View>
+      <ShoppingCart size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
+      {totalItems > 0 && <Badge count={totalItems} />}
+    </View>
+  );
+}
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textTertiary,
+        tabBarLabelStyle: {
+          fontSize: FontSize.xs,
+          fontWeight: FontWeight.medium,
+          marginTop: -2,
+        },
+        tabBarStyle: {
+          backgroundColor: Colors.surface,
+          borderTopWidth: 0,
+          height: Platform.OS === 'ios' ? 88 : 64,
+          paddingTop: Spacing.sm,
+          paddingBottom: Platform.OS === 'ios' ? 28 : Spacing.sm,
+          ...Shadow.lg,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <Home size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="search"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
+          title: 'Search',
+          tabBarIcon: ({ color, focused }) => (
+            <Search size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: 'Orders',
+          tabBarIcon: ({ color, focused }) => (
+            <ClipboardList size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: 'Cart',
+          tabBarIcon: ({ color, focused }) => <CartTabIcon color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <User size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
