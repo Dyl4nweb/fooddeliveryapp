@@ -15,7 +15,7 @@ import {
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { X, Zap } from 'lucide-react-native';
 import {
   Colors,
   Spacing,
@@ -28,12 +28,13 @@ import { Button, Input, GoogleSignInButton } from '../../components/ui';
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, signInDemo } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = async () => {
@@ -54,6 +55,14 @@ export default function SignInScreen() {
     } else {
       router.back();
     }
+  };
+
+  const handleDemoSignIn = async () => {
+    setDemoLoading(true);
+    setError(null);
+    await signInDemo();
+    setDemoLoading(false);
+    router.back();
   };
 
   const handleGoogleSignIn = async () => {
@@ -113,6 +122,19 @@ export default function SignInScreen() {
               <Text style={styles.errorAlertText}>{error}</Text>
             </View>
           )}
+
+          {/* 1-Tap Quick Access Login */}
+          <TouchableOpacity
+            style={styles.demoLoginBtn}
+            onPress={handleDemoSignIn}
+            disabled={demoLoading}
+            activeOpacity={0.8}
+          >
+            <Zap size={18} color="#FFFFFF" fill="#FFFFFF" />
+            <Text style={styles.demoLoginBtnText}>
+              {demoLoading ? 'Accessing...' : '1-Tap Quick Access (Try App Now)'}
+            </Text>
+          </TouchableOpacity>
 
           {/* Quick Google Sign In */}
           <GoogleSignInButton
@@ -268,5 +290,25 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     fontWeight: FontWeight.semibold,
+  },
+  demoLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  demoLoginBtnText: {
+    color: '#FFFFFF',
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
   },
 });

@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -11,6 +12,18 @@ import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const DEMO_USER_STORAGE_KEY = 'agturong_demo_user_v1';
+
+const DEMO_USER_PROFILE: UserProfile = {
+  id: '00000000-0000-0000-0000-000000000001',
+  email: 'juan.delacruz@agturong.ph',
+  full_name: 'Juan dela Cruz (Alaminos City)',
+  phone_number: '+63 917 890 1234',
+  avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 interface AuthContextValue {
   session: Session | null;
@@ -20,6 +33,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
@@ -35,11 +49,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id, session.user);
+        await fetchProfile(session.user.id, session.user);
+      } else {
+        // Check for persisted demo session
+        try {
+          const stored = await AsyncStorage.getItem(DEMO_USER_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as UserProfile;
+            setProfile(parsed);
+            setUser({
+              id: parsed.id,
+              email: parsed.email,
+              app_metadata: {},
+              user_metadata: { full_name: parsed.full_name },
+              aud: 'authenticated',
+              created_at: parsed.created_at,
+            } as User);
+          }
+        } catch (e) {
+          console.warn('Error loading demo user:', e);
+        }
       }
       setIsLoading(false);
     });
@@ -52,7 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await fetchProfile(session.user.id, session.user);
         } else {
-          setProfile(null);
+          // If no supabase session, check demo user
+          const stored = await AsyncStorage.getItem(DEMO_USER_STORAGE_KEY).catch(() => null);
+          if (!stored) {
+            setProfile(null);
+          }
         }
       }
     );
@@ -220,9 +257,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInDemo = async () => {
+    try {
+      await AsyncStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(DEMO_USER_PROFILE));
+      setProfile(DEMO_USER_PROFILE);
+      setUser({
+        id: DEMO_USER_PROFILE.id,
+        email: DEMO_USER_PROFILE.email,
+        app_metadata: {},
+        user_metadata: { full_name: DEMO_USER_PROFILE.full_name },
+        aud: 'authenticated',
+        created_at: DEMO_USER_PROFILE.created_at,
+      } as User);
+    } catch (e) {
+      console.error('Error signing in demo user:', e);
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
+    await AsyncStorage.removeItem(DEMO_USER_STORAGE_KEY).catch(() => {});
     setProfile(null);
+    setUser(null);
+    setSession(null);
   };
 
   const updateProfile = async (
@@ -230,6 +287,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ error: Error | null }> => {
     try {
       if (!user) throw new Error('Not authenticated');
+
+      // If demo user, update local demo profile
+      if (user.id === DEMO_USER_PROFILE.id && profile) {
+        const updated = { ...profile, ...updates };
+        setProfile(updated);
+        await AsyncStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(updated));
+        return { error: null };
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update(updates)
@@ -244,7 +310,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user && user.id !== DEMO_USER_PROFILE.id) {
+      await fetchProfile(user.id);
+    }
   };
 
   return (
@@ -257,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signIn,
         signInWithGoogle,
+        signInDemo,
         signOut,
         updateProfile,
         refreshProfile,
