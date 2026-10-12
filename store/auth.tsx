@@ -6,7 +6,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import Constants, { AppOwnership } from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
@@ -155,12 +155,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     try {
+      // In SDK 57: ExecutionEnvironment.StoreClient reliably detects Expo Go
+      const isExpoGo =
+        Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
       // In Expo Go on iOS, Safari only recognizes exp:// links.
       // In standalone / development builds, it uses the registered agturong:// scheme.
-      const isExpoGo = Constants.appOwnership === AppOwnership.Expo;
       const redirectTo = isExpoGo
         ? Linking.createURL('auth-callback')
         : 'agturong://auth-callback';
+
+      console.log('🔗 [OAuth] isExpoGo:', isExpoGo, 'redirectTo:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

@@ -54,6 +54,10 @@ export default function RootLayout() {
               name="address/index"
               options={{ animation: 'slide_from_bottom' }}
             />
+            <Stack.Screen
+              name="auth-callback"
+              options={{ animation: 'none' }}
+            />
             <Stack.Screen name="+not-found" />
           </Stack>
 
