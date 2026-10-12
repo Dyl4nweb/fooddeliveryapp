@@ -25,17 +25,18 @@ import {
   FontWeight,
 } from '../../constants/theme';
 import { useAuth } from '../../store/auth';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, GoogleSignInButton } from '../../components/ui';
 
 export default function SignUpScreen() {
   const insets = useSafeAreaInsets();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignUp = async () => {
@@ -75,6 +76,21 @@ export default function SignUpScreen() {
         'Welcome to AGTURONG! You can now browse restaurants and order food.',
         [{ text: 'Continue', onPress: () => router.back() }]
       );
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setGoogleLoading(true);
+    setError(null);
+
+    const { error: googleError } = await signInWithGoogle();
+
+    setGoogleLoading(false);
+
+    if (googleError) {
+      setError(googleError.message || 'Failed to sign up with Google.');
+    } else {
+      router.back();
     }
   };
 
@@ -120,6 +136,20 @@ export default function SignUpScreen() {
               <Text style={styles.errorAlertText}>{error}</Text>
             </View>
           )}
+
+          {/* Quick Google Sign In */}
+          <GoogleSignInButton
+            title="Sign up with Google"
+            onPress={handleGoogleSignUp}
+            loading={googleLoading}
+          />
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <Input
             label="Full Name"
@@ -267,4 +297,22 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: FontWeight.bold,
   },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.xs,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  dividerText: {
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    fontWeight: FontWeight.semibold,
+  },
 });
+

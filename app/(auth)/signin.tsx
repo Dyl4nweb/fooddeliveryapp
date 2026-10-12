@@ -24,15 +24,16 @@ import {
   FontWeight,
 } from '../../constants/theme';
 import { useAuth } from '../../store/auth';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, GoogleSignInButton } from '../../components/ui';
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = async () => {
@@ -50,6 +51,21 @@ export default function SignInScreen() {
 
     if (signInError) {
       setError(signInError.message || 'Failed to sign in. Please verify your credentials.');
+    } else {
+      router.back();
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError(null);
+
+    const { error: googleError } = await signInWithGoogle();
+
+    setGoogleLoading(false);
+
+    if (googleError) {
+      setError(googleError.message || 'Failed to sign in with Google.');
     } else {
       router.back();
     }
@@ -98,6 +114,20 @@ export default function SignInScreen() {
             </View>
           )}
 
+          {/* Quick Google Sign In */}
+          <GoogleSignInButton
+            title="Continue with Google"
+            onPress={handleGoogleSignIn}
+            loading={googleLoading}
+          />
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or continue with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <Input
             label="Email Address"
             placeholder="juan@example.com"
@@ -129,7 +159,7 @@ export default function SignInScreen() {
             variant="primary"
             size="lg"
             fullWidth
-            style={{ marginTop: Spacing.md }}
+            style={{ marginTop: Spacing.sm }}
           />
 
           {/* Quick link to register */}
@@ -221,5 +251,22 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.primary,
     fontWeight: FontWeight.bold,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.xs,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  dividerText: {
+    paddingHorizontal: Spacing.md,
+    fontSize: FontSize.xs,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    fontWeight: FontWeight.semibold,
   },
 });

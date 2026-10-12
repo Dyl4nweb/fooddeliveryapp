@@ -4,8 +4,12 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
+
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextValue {
   session: Session | null;
@@ -14,6 +18,7 @@ interface AuthContextValue {
   isLoading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
@@ -33,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user);
       }
       setIsLoading(false);
     });
@@ -44,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          await fetchProfile(session.user.id, session.user);
         } else {
           setProfile(null);
         }
@@ -54,18 +59,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, authUser?: User) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setProfile(data as UserProfile);
+      if (error) {
+        console.warn('Error fetching profile:', error.message);
+      }
+
+      if (data) {
+        setProfile(data as UserProfile);
+      } else {
+        // Automatically create user profile if not yet created (e.g. Google OAuth sign-in)
+        const currentUser = authUser || user || (await supabase.auth.getUser()).data.user;
+        if (currentUser) {
+          const fallbackName =
+            currentUser.user_metadata?.full_name ||
+            currentUser.user_metadata?.name ||
+            currentUser.email?.split('@')[0] ||
+            'Agturong Customer';
+          const newProfile = {
+            id: currentUser.id,
+            email: currentUser.email || '',
+            full_name: fallbackName,
+            avatar_url: currentUser.user_metadata?.avatar_url || null,
+          };
+          const { data: created, error: insertErr } = await supabase
+            .from('profiles')
+            .upsert(newProfile)
+            .select()
+            .single();
+
+          if (!insertErr && created) {
+            setProfile(created as UserProfile);
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error in fetchProfile:', error);
     }
   };
 
@@ -117,6 +152,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
+    try {
+      // Create redirect URI back to Agturong
+      const redirectTo = Linking.createURL('auth-callback');
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('No authentication URL received from Supabase.');
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type === 'success' && result.url) {
+        const parsed = Linking.parse(result.url);
+        const code = parsed.queryParams?.code;
+
+        if (typeof code === 'string') {
+          const { data: sessionData, error: sessionErr } =
+            await supabase.auth.exchangeCodeForSession(code);
+          if (sessionErr) throw sessionErr;
+          if (sessionData.user) {
+            await fetchProfile(sessionData.user.id, sessionData.user);
+          }
+        } else if (result.url.includes('access_token=')) {
+          // Fallback if tokens returned directly in hash
+          const hashIdx = result.url.indexOf('#');
+          const fragment = result.url.substring(hashIdx + 1);
+          const params = new URLSearchParams(fragment);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+
+          if (accessToken && refreshToken) {
+            const { data: sessionData, error: sessionErr } =
+              await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+            if (sessionErr) throw sessionErr;
+            if (sessionData.user) {
+              await fetchProfile(sessionData.user.id, sessionData.user);
+            }
+          }
+        }
+      }
+
+      return { error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -153,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         signUp,
         signIn,
+        signInWithGoogle,
         signOut,
         updateProfile,
         refreshProfile,

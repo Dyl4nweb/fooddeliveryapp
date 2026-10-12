@@ -603,3 +603,6 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.semibold,
   },
 });
+
+export * from './GoogleSignInButton';
+
