@@ -21,6 +21,7 @@ import {
   LogOut,
   ChevronRight,
   Info,
+  Zap,
 } from 'lucide-react-native';
 import {
   Colors,
@@ -35,7 +36,7 @@ import { Button, Divider } from '../../components/ui';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, signInDemo } = useAuth();
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -97,6 +98,17 @@ export default function ProfileScreen() {
               <Text style={styles.guestSubtitle}>
                 Sign in to track orders, save delivery addresses, and enjoy seamless checkout.
               </Text>
+              <TouchableOpacity
+                style={styles.demoLoginBtn}
+                onPress={signInDemo}
+                activeOpacity={0.8}
+              >
+                <Zap size={16} color="#FFFFFF" fill="#FFFFFF" />
+                <Text style={styles.demoLoginBtnText}>
+                  ⚡ 1-Tap Quick Access (Try Now)
+                </Text>
+              </TouchableOpacity>
+
               <View style={styles.authButtonsRow}>
                 <Button
                   title="Sign In"
@@ -403,5 +415,26 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textTertiary,
     marginTop: 2,
+  },
+  demoLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    borderRadius: BorderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  demoLoginBtnText: {
+    color: '#FFFFFF',
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.bold,
   },
 });

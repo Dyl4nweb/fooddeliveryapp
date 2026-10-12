@@ -45,7 +45,7 @@ export default function SignUpScreen() {
     setError(null);
     await signInDemo();
     setDemoLoading(false);
-    router.back();
+    router.replace('/');
   };
 
   const handleSignUp = async () => {

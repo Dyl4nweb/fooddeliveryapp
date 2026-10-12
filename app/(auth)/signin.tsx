@@ -62,7 +62,7 @@ export default function SignInScreen() {
     setError(null);
     await signInDemo();
     setDemoLoading(false);
-    router.back();
+    router.replace('/');
   };
 
   const handleGoogleSignIn = async () => {
