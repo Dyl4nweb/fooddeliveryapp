@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
@@ -154,8 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (): Promise<{ error: Error | null }> => {
     try {
-      // Create redirect URI back to Agturong
-      const redirectTo = Linking.createURL('auth-callback');
+      // Generate environment-aware redirect URI (works for Expo Go and standalone builds)
+      const redirectTo = makeRedirectUri({
+        scheme: 'agturong',
+        path: 'auth-callback',
+      });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -205,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: null };
     } catch (error) {
+      console.error('Google sign-in error:', error);
       return { error: error as Error };
     }
   };
