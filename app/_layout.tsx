@@ -12,14 +12,36 @@ import { CartProvider } from '../store/cart';
 import { Colors } from '../constants/theme';
 import { AnimatedSplashScreen } from '../components/AnimatedSplashScreen';
 
-SplashScreen.preventAutoHideAsync();
+// Note: We do NOT call SplashScreen.preventAutoHideAsync() at top-level on Android,
+// because Expo Go / Android can permanently freeze on the native logo if hideAsync()
+// encounters any race condition or rejected promise during root mount.
 
 export default function RootLayout() {
   const [splashFinished, setSplashFinished] = useState(false);
 
+  const handleFinishSplash = React.useCallback(() => {
+    setSplashFinished(true);
+  }, []);
+
   useEffect(() => {
-    // Hide static splash immediately once JS bundle loads so the animated splash takes over
+    // 1. Immediately request native splash screen to hide
     SplashScreen.hideAsync().catch(() => {});
+
+    // 2. Safety retry for Android in case first call occurred before window attached
+    const retryTimer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 200);
+
+    // 3. Hard fallback: Guarantee main app is revealed after 2.6s max on all devices
+    const fallbackTimer = setTimeout(() => {
+      setSplashFinished(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 2600);
+
+    return () => {
+      clearTimeout(retryTimer);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   return (
@@ -63,7 +85,7 @@ export default function RootLayout() {
 
           {/* Animated Motorcycle Splash Screen */}
           {!splashFinished && (
-            <AnimatedSplashScreen onFinish={() => setSplashFinished(true)} />
+            <AnimatedSplashScreen onFinish={handleFinishSplash} />
           )}
         </View>
       </CartProvider>

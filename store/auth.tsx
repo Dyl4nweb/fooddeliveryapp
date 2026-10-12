@@ -49,33 +49,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id, session.user);
-      } else {
-        // Check for persisted demo session
-        try {
-          const stored = await AsyncStorage.getItem(DEMO_USER_STORAGE_KEY);
-          if (stored) {
-            const parsed = JSON.parse(stored) as UserProfile;
-            setProfile(parsed);
-            setUser({
-              id: parsed.id,
-              email: parsed.email,
-              app_metadata: {},
-              user_metadata: { full_name: parsed.full_name },
-              aud: 'authenticated',
-              created_at: parsed.created_at,
-            } as User);
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchProfile(session.user.id, session.user);
+        } else {
+          // Check for persisted demo session
+          try {
+            const stored = await AsyncStorage.getItem(DEMO_USER_STORAGE_KEY);
+            if (stored) {
+              const parsed = JSON.parse(stored) as UserProfile;
+              setProfile(parsed);
+              setUser({
+                id: parsed.id,
+                email: parsed.email,
+                app_metadata: {},
+                user_metadata: { full_name: parsed.full_name },
+                aud: 'authenticated',
+                created_at: parsed.created_at,
+              } as User);
+            }
+          } catch (e) {
+            console.warn('Error loading demo user:', e);
           }
-        } catch (e) {
-          console.warn('Error loading demo user:', e);
         }
-      }
-      setIsLoading(false);
-    });
+      })
+      .catch((err) => {
+        console.warn('Supabase getSession error:', err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

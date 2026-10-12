@@ -3,7 +3,7 @@
 // Cartoon Motorcycle Delivery Mascot with Dynamic Road & Motion
 // ============================================================
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors, Spacing, BorderRadius, FontSize, FontWeight } from '../constants/theme';
@@ -22,7 +23,12 @@ interface AnimatedSplashScreenProps {
 }
 
 export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
-  // Animation drivers (React 19 compliant useState initializer)
+  const onFinishRef = useRef(onFinish);
+  useEffect(() => {
+    onFinishRef.current = onFinish;
+  }, [onFinish]);
+
+  // Animation drivers (useState lazy initializers compliant with React 19)
   const [scooterEntrance] = useState(() => new Animated.Value(-SCREEN_WIDTH * 0.7));
   const [scooterBob] = useState(() => new Animated.Value(0));
   const [scooterTilt] = useState(() => new Animated.Value(-4));
@@ -34,6 +40,8 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
   const [screenFade] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
+    let isMounted = true;
+
     // 1. Scooter rides in from left with spring
     Animated.spring(scooterEntrance, {
       toValue: 0,
@@ -45,8 +53,8 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
     // 2. Straighten scooter tilt after riding in
     Animated.timing(scooterTilt, {
       toValue: 0,
-      duration: 600,
-      delay: 400,
+      duration: 500,
+      delay: 300,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
@@ -83,11 +91,11 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
 
     // 5. Brand text reveal
     Animated.sequence([
-      Animated.delay(350),
+      Animated.delay(250),
       Animated.parallel([
         Animated.timing(textOpacity, {
           toValue: 1,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.spring(textScale, {
@@ -99,7 +107,7 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
       // 6. Badge reveal
       Animated.timing(badgeOpacity, {
         toValue: 1,
-        duration: 400,
+        duration: 350,
         useNativeDriver: true,
       }),
     ]).start();
@@ -107,29 +115,42 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
     // 7. Loading progress bar
     Animated.timing(progressWidth, {
       toValue: 1,
-      duration: 2200,
+      duration: 1700,
       easing: Easing.inOut(Easing.quad),
       useNativeDriver: false,
     }).start();
 
     // 8. Exit / smooth transition to main app
     const finishTimer = setTimeout(() => {
+      if (!isMounted) return;
       Animated.timing(screenFade, {
         toValue: 0,
-        duration: 450,
+        duration: 350,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }).start(() => {
         bobAnimation.stop();
         speedAnimation.stop();
-        onFinish?.();
+        if (isMounted) {
+          onFinishRef.current?.();
+        }
       });
-    }, 2400);
+    }, 1800);
 
-    return () => {
-      clearTimeout(finishTimer);
+    // 9. Hard safety fallback timer (guarantees exit even if animation halts or frames drop)
+    const hardSafetyTimer = setTimeout(() => {
       bobAnimation.stop();
       speedAnimation.stop();
+      if (isMounted) {
+        onFinishRef.current?.();
+      }
+    }, 2200);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(finishTimer);
+      clearTimeout(hardSafetyTimer);
+      bobAnimation.stop();
     };
   }, [
     scooterEntrance,
@@ -141,7 +162,6 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
     badgeOpacity,
     progressWidth,
     screenFade,
-    onFinish,
   ]);
 
   const roadLineTranslate1 = speedLinesX.interpolate({
@@ -166,87 +186,93 @@ export function AnimatedSplashScreen({ onFinish }: AnimatedSplashScreenProps) {
 
   return (
     <Animated.View style={[styles.container, { opacity: screenFade }]}>
-      {/* Background Decorative Circles */}
-      <View style={styles.backgroundCircleLarge} />
-      <View style={styles.backgroundCircleSmall} />
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => onFinishRef.current?.()}
+        style={styles.touchArea}
+      >
+        {/* Background Decorative Circles */}
+        <View style={styles.backgroundCircleLarge} />
+        <View style={styles.backgroundCircleSmall} />
 
-      {/* Main Mascot & Scooter Scene */}
-      <View style={styles.sceneContainer}>
-        {/* Animated Scooter & Rider */}
+        {/* Main Mascot & Scooter Scene */}
+        <View style={styles.sceneContainer}>
+          {/* Animated Scooter & Rider */}
+          <Animated.View
+            style={[
+              styles.scooterWrapper,
+              {
+                transform: [
+                  { translateX: scooterEntrance },
+                  { translateY: scooterBob },
+                  { rotate: tiltInterpolate },
+                ],
+              },
+            ]}
+          >
+            <Image
+              source={require('../assets/images/splash-rider.png')}
+              style={styles.scooterImage}
+              contentFit="contain"
+            />
+          </Animated.View>
+
+          {/* Road & Motion Speed Lines */}
+          <View style={styles.roadContainer}>
+            {/* Main Road Line */}
+            <View style={styles.roadBase} />
+
+            {/* Animated Speed Dashes */}
+            <Animated.View
+              style={[
+                styles.speedLineDash1,
+                { transform: [{ translateX: roadLineTranslate1 }] },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.speedLineDash2,
+                { transform: [{ translateX: roadLineTranslate2 }] },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Brand Text Section */}
         <Animated.View
           style={[
-            styles.scooterWrapper,
+            styles.textSection,
             {
-              transform: [
-                { translateX: scooterEntrance },
-                { translateY: scooterBob },
-                { rotate: tiltInterpolate },
-              ],
+              opacity: textOpacity,
+              transform: [{ scale: textScale }],
             },
           ]}
         >
-          <Image
-            source={require('../assets/images/splash-rider.png')}
-            style={styles.scooterImage}
-            contentFit="contain"
-          />
+          <Text style={styles.brandTitle}>AGTURONG</Text>
+          <Text style={styles.brandSubtitle}>DELIVERY</Text>
+
+          <Animated.View style={[styles.badgeContainer, { opacity: badgeOpacity }]}>
+            <View style={styles.dot} />
+            <Text style={styles.badgeText}>ALAMINOS CITY • PANGASINAN</Text>
+            <View style={styles.dot} />
+          </Animated.View>
+
+          <Text style={styles.tagline}>Mabilis • Mainit • Masarap</Text>
         </Animated.View>
 
-        {/* Road & Motion Speed Lines */}
-        <View style={styles.roadContainer}>
-          {/* Main Road Line */}
-          <View style={styles.roadBase} />
-
-          {/* Animated Speed Dashes */}
-          <Animated.View
-            style={[
-              styles.speedLineDash1,
-              { transform: [{ translateX: roadLineTranslate1 }] },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.speedLineDash2,
-              { transform: [{ translateX: roadLineTranslate2 }] },
-            ]}
-          />
+        {/* Bottom Loading Bar */}
+        <View style={styles.bottomLoader}>
+          <View style={styles.progressBarTrack}>
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                { width: progressInterpolate },
+              ]}
+            />
+          </View>
+          <Text style={styles.loadingText}>Loading delicious meals...</Text>
         </View>
-      </View>
-
-      {/* Brand Text Section */}
-      <Animated.View
-        style={[
-          styles.textSection,
-          {
-            opacity: textOpacity,
-            transform: [{ scale: textScale }],
-          },
-        ]}
-      >
-        <Text style={styles.brandTitle}>AGTURONG</Text>
-        <Text style={styles.brandSubtitle}>DELIVERY</Text>
-
-        <Animated.View style={[styles.badgeContainer, { opacity: badgeOpacity }]}>
-          <View style={styles.dot} />
-          <Text style={styles.badgeText}>ALAMINOS CITY • PANGASINAN</Text>
-          <View style={styles.dot} />
-        </Animated.View>
-
-        <Text style={styles.tagline}>Mabilis • Mainit • Masarap</Text>
-      </Animated.View>
-
-      {/* Bottom Loading Bar */}
-      <View style={styles.bottomLoader}>
-        <View style={styles.progressBarTrack}>
-          <Animated.View
-            style={[
-              styles.progressBarFill,
-              { width: progressInterpolate },
-            ]}
-          />
-        </View>
-        <Text style={styles.loadingText}>Loading delicious meals...</Text>
-      </View>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -256,6 +282,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#FFFFFF',
     zIndex: 99999,
+  },
+  touchArea: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: Spacing.section,
